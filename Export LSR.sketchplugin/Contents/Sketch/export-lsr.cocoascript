@@ -63,7 +63,7 @@ function createLSR(URL) {
 
 	var fileManager = [NSFileManager new]
 	[fileManager moveItemAtURL:zipURL toURL:lsrURL error:nil]
-	// [fileManager removeItemAtURL:URL error:nil]
+	[fileManager removeItemAtURL:URL error:nil]
 }
 
 function saveJSONToURL(JSON, URL) {
