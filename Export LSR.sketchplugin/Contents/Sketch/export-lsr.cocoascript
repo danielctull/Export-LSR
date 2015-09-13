@@ -67,16 +67,11 @@ function createLSR(URL) {
 }
 
 function saveJSONToURL(JSON, URL) {
+	log("Saving: " + JSON)
 	var data = [NSJSONSerialization dataWithJSONObject:JSON options:NSJSONWritingPrettyPrinted error:nil]
-	var fileManager = [NSFileManager new]
-	[fileManager createFileAtPath:[URL path] contents:data attributes: nil]
-}
-
-function info() {
-	var info = [NSMutableDictionary new]
-	[info setObject:1 forKey:"version"]
-	[info setObject:"xcode" forKey:"author"]
-	return info	
+	var fileManager = [NSFileManager defaultManager]
+	[fileManager createFileAtPath:[URL path] contents:data attributes:nil]
+	log("Saved: " + URL)
 }
 
 function onRun(context) {
@@ -86,96 +81,140 @@ function onRun(context) {
 	getDirectoryURL(function(URL) {
 			
 		getArtboard(context, function(artboard) {
-				
-			var exportURL = [URL URLByAppendingPathComponent:[artboard name]]
-			var layers = [NSMutableArray new]
 			
-			var exportOptions = [artboard exportOptions]
-			var exportSizes = [exportOptions sizes]
+			// log("Processing artboard: " + artboard)
 			
-			enumerateSlices(artboard, function(slice) {
+			var exportSizes = [[artboard exportOptions] sizes]
+			var sizeCount = [exportSizes count]
+			for (var s = 0; s < [exportSizes count]; s++) {
+							
+				var size = [exportSizes objectAtIndex:s]
+				var scale = [size scale]
+				var width = [[artboard absoluteRect] width] * scale
+				var height = [[artboard absoluteRect] height] * scale
+
+				var exportURL = [URL URLByAppendingPathComponent:[artboard name] + [size name]]
+				var layers = [NSMutableArray new]
 				
-				var layerName = [slice name] + ".imagestacklayer"
-				var layerURL = [exportURL URLByAppendingPathComponent:layerName]
-				var file = [layerURL URLByAppendingPathComponent:"Content.imageset"]
-				file = [file URLByAppendingPathComponent:[slice name] + ".png"]
+				enumerateSlices(artboard, function(slice) {
 				
-				[document saveArtboardOrSlice:slice toFile:[file path]]
-	            log("Saved " + file);
+					var layerName = [slice name] + ".imagestacklayer"
+					var layerURL = [exportURL URLByAppendingPathComponent:layerName]
+					
+					var imagesetURL = [layerURL URLByAppendingPathComponent:"Content.imageset"]
+					
+					var imageName = [slice name] + ".png"
+					var imageURL = [imagesetURL URLByAppendingPathComponent:imageName]
+					
+					var imagesetJSONURL = [imagesetURL URLByAppendingPathComponent:"Contents.json"]
+					var layerJSONURL = [layerURL URLByAppendingPathComponent:"Contents.json"]
+
+					// Export slice
+					var exportSlice = [[MSSliceMaker slicesFromExportableLayer:slice] firstObject]
+					[exportSlice setScale:scale]
+					
+					[document saveArtboardOrSlice:exportSlice toFile:[imageURL path]]
+
+					// Add layer
+					var layer = [NSDictionary dictionaryWithObject:layerName forKey:"filename"]
+					[layers insertObject:layer atIndex:0]
+					
+					// Create imageset Contents.json
+
+					var images = [NSMutableArray new]
+					[images addObject:imageJSON(imageName)]
+
+					var imagesetJSON = [NSMutableDictionary new]
+					[imagesetJSON setObject:images forKey:"images"]
+					[imagesetJSON setObject:infoJSON() forKey:"info"]
+					saveJSONToURL(imagesetJSON, imagesetJSONURL)
+					
+					// Create imagestacklayer Contents.json
+
+					// log("PDC 1" + imageName)
+					// var layerJSON = layerJSON(width, height)
+					 // log("PDC 2" + theLayerJSON)
+					saveJSONToURL(layerJSON(width, height), layerJSONURL)
+					// log("PDC 3" + imageName)
+
+				}, function() {
+
+					var canvasSize = [NSMutableDictionary new]
+					[canvasSize setObject:width forKey:"width"]
+					[canvasSize setObject:height forKey:"height"]
+
+					var properties = [NSMutableDictionary new]
+					[properties setObject:canvasSize forKey:"canvasSize"]
+
+					var LSRJSON = [NSMutableDictionary new]
+					[LSRJSON setObject:layers forKey:"layers"]
+					[LSRJSON setObject:infoJSON() forKey:"info"]
+					[LSRJSON setObject:properties forKey:"properties"]
+
+					var LSRJSONURL = [exportURL URLByAppendingPathComponent:"Contents.json"]
+					saveJSONToURL(LSRJSON, LSRJSONURL)
 				
-				var layer = [NSDictionary dictionaryWithObject:layerName forKey:"filename"]
-				[layers insertObject:layer atIndex:0]
-				
-				var images = [NSMutableArray new]
-				
-				var image = [NSMutableDictionary new]
-				[image setObject:"tv" forKey:"idiom"]
-				[image setObject:images forKey:"filename"]
-				[image setObject:"1x" forKey:"scale"]
-				[images addObject:image]
-				
-				var layerInfo = [NSMutableDictionary new]
-				[layerInfo setObject:images forKey:"images"]
-				[layerInfo setObject:info() forKey:"info"]
-				
-				var layerInfoURL = [layerURL URLByAppendingPathComponent:"Contents.json"]
-				saveJSONToURL(layerInfo, layerInfoURL)
-				
-			}, function() {
-				
-				var canvasSize = [NSMutableDictionary new]
-				[canvasSize setObject:0 forKey:"width"]
-				[canvasSize setObject:0 forKey:"height"]
-				
-				var properties = [NSMutableDictionary new]
-				[properties setObject:canvasSize forKey:"canvasSize"]
-				
-				var lsrInfo = [NSMutableDictionary new]
-				[lsrInfo setObject:layers forKey:"layers"]
-				[lsrInfo setObject:info() forKey:"info"]
-				[lsrInfo setObject:properties forKey:"properties"]
-				
-	
-				var lsrInfoURL = [exportURL URLByAppendingPathComponent:"Contents.json"]
-				saveJSONToURL(lsrInfo, lsrInfoURL)
-				
-				createLSR(exportURL)
-			})
+					createLSR(exportURL)
+				})
+			}
 		})	
 	})
 }
 
+function infoJSON() {
+	var infoJSON = [NSMutableDictionary new]
+	[infoJSON setObject:1 forKey:"version"]
+	[infoJSON setObject:"xcode" forKey:"author"]
+	// log("info: " + infoJSON)
+	return infoJSON
+}
 
+function imageJSON(filename) {
+	var imageJSON = [NSMutableDictionary new]
+	[imageJSON setObject:"tv" forKey:"idiom"]
+	[imageJSON setObject:filename forKey:"filename"]
+	[imageJSON setObject:"1x" forKey:"scale"]
+	// log("image: " + imageJSON)
+	return imageJSON
+}
 
-// {
-//   "images" : [
-//     {
-//       "idiom" : "tv",
-//       "filename" : "isu background.png",
-//       "scale" : "1x"
-//     }
-//   ],
-//   "info" : {
-//     "version" : 1,
-//     "author" : "xcode"
-//   }
-// }
+function sizeJSON(width, height) {
+	var sizeJSON = [NSMutableDictionary new]
+	[sizeJSON setObject:width forKey:"width"]
+	[sizeJSON setObject:height forKey:"height"]
+	// log("size: " + sizeJSON)
+	return sizeJSON
+}
 
+function pointJSON(x, y) {
+	var pointJSON = [NSMutableDictionary new]
+	[pointJSON setObject:x forKey:"x"]
+	[pointJSON setObject:y forKey:"y"]
+	// log("point: " + pointJSON)
+	return pointJSON
+}
 
+function propertiesJSON(width, height) {
+	var size = sizeJSON(width, height)
+	var center = pointJSON(width/2, height/2)
+	var properties = [NSMutableDictionary new]
+	[propertiesJSON setObject:size forKey:"frame-size"]
+	[propertiesJSON setObject:center forKey:"frame-center"]
+	// log("properties: " + propertiesJSON)
+	return propertiesJSON
+}
 
-// {
-//   "info" : {
-//     "version" : 1,
-//     "author" : "xcode"
-//   },
-//   "properties" : {
-//     "frame-size" : {
-//       "width" : 1024,
-//       "height" : 1024
-//     },
-//     "frame-center" : {
-//       "x" : 512,
-//       "y" : 512
-//     }
-//   }
-// }
+function layerJSON(width, height) {
+	var layer = [NSMutableDictionary new]
+	log("layer 1: " + layer)
+	// log("layer class: " + [layer class])
+	var info = infoJSON()
+	log("info: " + info)
+	[layer setObject:infoJSON() forKey:"info"]
+	log("layer 2: " + layer)
+	var properties = propertiesJSON(width, height)
+	log("properties: " + properties)
+	[layer setObject:properties forKey:"properties"]
+	log("layer 3: " + layer)
+	return layer
+}
