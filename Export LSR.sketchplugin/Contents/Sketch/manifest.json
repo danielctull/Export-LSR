@@ -1,0 +1,23 @@
+{
+  "author" : "Daniel Tull",
+  "commands" : [
+    {
+      "script" : "export-lsr.cocoascript",
+      "handler" : "onRun",
+      "shortcut" : "",
+      "name" : "Export LSR",
+      "identifier" : "uk.co.danieltull.export-lsr"
+    },
+  ],
+  "menu": {
+    "isRoot": true,
+    "items": [
+      "uk.co.danieltull.export-lsr",
+    ],
+  },
+  "identifier" : "uk.co.danieltull.export-lsr",
+  "version" : "1.0",
+  "description" : "Sketch Plugin to export an Apple TV LSR file.",
+  "authorEmail" : "dt@danieltull.co.uk",
+  "name" : "Export LSR"
+}

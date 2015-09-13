@@ -1,0 +1,181 @@
+
+function getDirectoryURL(callback) {
+    var panel = [NSOpenPanel openPanel];
+    [panel setMessage:"Where do you want to save the LSR file?"];
+    [panel setCanChooseDirectories: true];
+    [panel setCanChooseFiles: false];
+    [panel setCanCreateDirectories: true];
+
+    [panel setTitle:"Export LSR"]
+	[panel setPrompt:"Export"]
+
+	var result = [panel runModal]
+    if (result == NSFileHandlingPanelOKButton) {
+		
+		var URL = [panel URL];
+		
+        [URL startAccessingSecurityScopedResource]
+        callback(URL)
+		[URL stopAccessingSecurityScopedResource]
+    }
+}
+
+function getArtboard(context, callback) {
+
+	var artboardclass = NSClassFromString('MSArtboardGroup')
+
+	var selection = context.selection
+	var selectionEnumerator = [selection objectEnumerator]
+	while (selectedItem = [selectionEnumerator nextObject]) {
+		if ([selectedItem isKindOfClass:artboardclass]) {
+			callback(selectedItem)
+		}
+	}
+}
+
+function enumerateSlices(artboard, callback, completion) {
+
+	var sliceClass = NSClassFromString('MSSliceLayer')
+	
+	var layers = [artboard children]
+	var layerEnumerator = [layers objectEnumerator]
+	while (layer = [layerEnumerator nextObject]) {
+		if ([layer isKindOfClass:sliceClass]) {
+			callback(layer)
+		}
+	}
+	
+	completion()
+}
+
+function createLSR(URL) {
+	
+	var zipURL = [URL URLByAppendingPathExtension:"zip"]
+	var lsrURL = [URL URLByAppendingPathExtension:"lsr"]
+
+	var task = [NSTask new]
+	[task setCurrentDirectoryPath:[URL path]]
+	[task setLaunchPath:"/usr/bin/zip"]
+	var argsArray = [NSArray arrayWithObjects:"-r", "-q", [zipURL path], ".", "-i", "*", nil]
+	[task setArguments:argsArray]
+	[task launch]
+	[task waitUntilExit]
+
+	var fileManager = [NSFileManager new]
+	[fileManager moveItemAtURL:zipURL toURL:lsrURL error:nil]
+	// [fileManager removeItemAtURL:URL error:nil]
+}
+
+function saveJSONToURL(JSON, URL) {
+	var data = [NSJSONSerialization dataWithJSONObject:JSON options:NSJSONWritingPrettyPrinted error:nil]
+	var fileManager = [NSFileManager new]
+	[fileManager createFileAtPath:[URL path] contents:data attributes: nil]
+}
+
+function info() {
+	var info = [NSMutableDictionary new]
+	[info setObject:1 forKey:"version"]
+	[info setObject:"xcode" forKey:"author"]
+	return info	
+}
+
+function onRun(context) {
+	
+	var document = context.document
+	
+	getDirectoryURL(function(URL) {
+			
+		getArtboard(context, function(artboard) {
+				
+			var exportURL = [URL URLByAppendingPathComponent:[artboard name]]
+			var layers = [NSMutableArray new]
+			
+			var exportOptions = [artboard exportOptions]
+			var exportSizes = [exportOptions sizes]
+			
+			enumerateSlices(artboard, function(slice) {
+				
+				var layerName = [slice name] + ".imagestacklayer"
+				var layerURL = [exportURL URLByAppendingPathComponent:layerName]
+				var file = [layerURL URLByAppendingPathComponent:"Content.imageset"]
+				file = [file URLByAppendingPathComponent:[slice name] + ".png"]
+				
+				[document saveArtboardOrSlice:slice toFile:[file path]]
+	            log("Saved " + file);
+				
+				var layer = [NSDictionary dictionaryWithObject:layerName forKey:"filename"]
+				[layers insertObject:layer atIndex:0]
+				
+				var images = [NSMutableArray new]
+				
+				var image = [NSMutableDictionary new]
+				[image setObject:"tv" forKey:"idiom"]
+				[image setObject:images forKey:"filename"]
+				[image setObject:"1x" forKey:"scale"]
+				[images addObject:image]
+				
+				var layerInfo = [NSMutableDictionary new]
+				[layerInfo setObject:images forKey:"images"]
+				[layerInfo setObject:info() forKey:"info"]
+				
+				var layerInfoURL = [layerURL URLByAppendingPathComponent:"Contents.json"]
+				saveJSONToURL(layerInfo, layerInfoURL)
+				
+			}, function() {
+				
+				var canvasSize = [NSMutableDictionary new]
+				[canvasSize setObject:0 forKey:"width"]
+				[canvasSize setObject:0 forKey:"height"]
+				
+				var properties = [NSMutableDictionary new]
+				[properties setObject:canvasSize forKey:"canvasSize"]
+				
+				var lsrInfo = [NSMutableDictionary new]
+				[lsrInfo setObject:layers forKey:"layers"]
+				[lsrInfo setObject:info() forKey:"info"]
+				[lsrInfo setObject:properties forKey:"properties"]
+				
+	
+				var lsrInfoURL = [exportURL URLByAppendingPathComponent:"Contents.json"]
+				saveJSONToURL(lsrInfo, lsrInfoURL)
+				
+				createLSR(exportURL)
+			})
+		})	
+	})
+}
+
+
+
+// {
+//   "images" : [
+//     {
+//       "idiom" : "tv",
+//       "filename" : "isu background.png",
+//       "scale" : "1x"
+//     }
+//   ],
+//   "info" : {
+//     "version" : 1,
+//     "author" : "xcode"
+//   }
+// }
+
+
+
+// {
+//   "info" : {
+//     "version" : 1,
+//     "author" : "xcode"
+//   },
+//   "properties" : {
+//     "frame-size" : {
+//       "width" : 1024,
+//       "height" : 1024
+//     },
+//     "frame-center" : {
+//       "x" : 512,
+//       "y" : 512
+//     }
+//   }
+// }
