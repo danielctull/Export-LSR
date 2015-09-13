@@ -197,7 +197,7 @@ function pointJSON(x, y) {
 function propertiesJSON(width, height) {
 	var size = sizeJSON(width, height)
 	var center = pointJSON(width/2, height/2)
-	var properties = [NSMutableDictionary new]
+	var propertiesJSON = [NSMutableDictionary new]
 	[propertiesJSON setObject:size forKey:"frame-size"]
 	[propertiesJSON setObject:center forKey:"frame-center"]
 	// log("properties: " + propertiesJSON)
@@ -205,16 +205,16 @@ function propertiesJSON(width, height) {
 }
 
 function layerJSON(width, height) {
-	var layer = [NSMutableDictionary new]
+	var layerJSON = [NSMutableDictionary new]
 	log("layer 1: " + layer)
 	// log("layer class: " + [layer class])
 	var info = infoJSON()
 	log("info: " + info)
-	[layer setObject:infoJSON() forKey:"info"]
-	log("layer 2: " + layer)
+	[layerJSON setObject:infoJSON() forKey:"info"]
+	log("layer 2: " + layerJSON)
 	var properties = propertiesJSON(width, height)
 	log("properties: " + properties)
-	[layer setObject:properties forKey:"properties"]
-	log("layer 3: " + layer)
-	return layer
+	[layerJSON setObject:properties forKey:"properties"]
+	log("layer 3: " + layerJSON)
+	return layerJSON
 }
