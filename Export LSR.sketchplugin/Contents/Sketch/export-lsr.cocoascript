@@ -48,7 +48,19 @@ function enumerateSlices(artboard, callback, completion) {
 	completion()
 }
 
-function createLSR(URL) {
+function createLSR(context, URL) {
+
+	var plugin = context.plugin
+	var metadataName = "com.apple.ZipMetadata.plist"
+	var metadataURL = [plugin urlForResourceNamed:metadataName]
+	log(metadataURL)
+
+	var matainfURL = [URL URLByAppendingPathComponent:"META-INF"]
+	var metadataOutputURL = [matainfURL URLByAppendingPathComponent:metadataName]
+
+	var fileManager = [NSFileManager new]
+	[fileManager createDirectoryAtURL:matainfURL withIntermediateDirectories:true attributes:nil error:nil]
+	[fileManager copyItemAtURL:metadataURL toURL:metadataOutputURL error:nil]
 	
 	var zipURL = [URL URLByAppendingPathExtension:"zip"]
 	var lsrURL = [URL URLByAppendingPathExtension:"lsr"]
@@ -61,14 +73,13 @@ function createLSR(URL) {
 	[task launch]
 	[task waitUntilExit]
 
-	var fileManager = [NSFileManager new]
 	[fileManager moveItemAtURL:zipURL toURL:lsrURL error:nil]
 	[fileManager removeItemAtURL:URL error:nil]
 }
 
 function saveJSONToURL(JSON, URL) {
 	var data = [NSJSONSerialization dataWithJSONObject:JSON options:NSJSONWritingPrettyPrinted error:nil]
-	var fileManager = [NSFileManager defaultManager]
+	var fileManager = [NSFileManager new]
 	[fileManager createFileAtPath:[URL path] contents:data attributes:nil]
 }
 
@@ -147,7 +158,7 @@ function onRun(context) {
 					var LSRJSONURL = [exportURL URLByAppendingPathComponent:"Contents.json"]
 					saveJSONToURL(LSRJSON, LSRJSONURL)
 				
-					createLSR(exportURL)
+					createLSR(context, exportURL)
 				})
 			}
 		})	
