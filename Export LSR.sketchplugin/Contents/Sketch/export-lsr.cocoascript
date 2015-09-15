@@ -1,23 +1,23 @@
 
 function getDirectoryURL(callback) {
-    var panel = [NSOpenPanel openPanel];
-    [panel setMessage:"Where do you want to save the LSR file?"];
-    [panel setCanChooseDirectories: true];
-    [panel setCanChooseFiles: false];
-    [panel setCanCreateDirectories: true];
-
-    [panel setTitle:"Export LSR"]
+	var panel = [NSOpenPanel openPanel];
+	[panel setMessage:"Where do you want to save the LSR file?"];
+	[panel setCanChooseDirectories: true];
+	[panel setCanChooseFiles: false];
+	[panel setCanCreateDirectories: true];
+	
+	[panel setTitle:"Export LSR"]
 	[panel setPrompt:"Export"]
 
 	var result = [panel runModal]
-    if (result == NSFileHandlingPanelOKButton) {
-		
+	if (result == NSFileHandlingPanelOKButton) {
+
 		var URL = [panel URL];
-		
-        [URL startAccessingSecurityScopedResource]
-        callback(URL)
+
+		[URL startAccessingSecurityScopedResource]
+		callback(URL)
 		[URL stopAccessingSecurityScopedResource]
-    }
+	}
 }
 
 function getArtboard(context, callback) {
@@ -36,7 +36,7 @@ function getArtboard(context, callback) {
 function enumerateSlices(artboard, callback, completion) {
 
 	var sliceClass = NSClassFromString('MSSliceLayer')
-	
+
 	var layers = [artboard children]
 	var layerEnumerator = [layers objectEnumerator]
 	while (layer = [layerEnumerator nextObject]) {
@@ -44,7 +44,7 @@ function enumerateSlices(artboard, callback, completion) {
 			callback(layer)
 		}
 	}
-	
+
 	completion()
 }
 
@@ -61,7 +61,7 @@ function createLSR(context, URL) {
 	var fileManager = [NSFileManager new]
 	[fileManager createDirectoryAtURL:matainfURL withIntermediateDirectories:true attributes:nil error:nil]
 	[fileManager copyItemAtURL:metadataURL toURL:metadataOutputURL error:nil]
-	
+
 	var zipURL = [URL URLByAppendingPathExtension:"zip"]
 	var lsrURL = [URL URLByAppendingPathExtension:"lsr"]
 
@@ -84,19 +84,19 @@ function saveJSONToURL(JSON, URL) {
 }
 
 function onRun(context) {
-	
+
 	var document = context.document
-	
+
 	getDirectoryURL(function(URL) {
-			
+
 		getArtboard(context, function(artboard) {
-			
+
 			// log("Processing artboard: " + artboard)
-			
+
 			var exportSizes = [[artboard exportOptions] sizes]
 			var sizeCount = [exportSizes count]
 			for (var s = 0; s < [exportSizes count]; s++) {
-							
+
 				var size = [exportSizes objectAtIndex:s]
 				var scale = [size scale]
 				var width = [[artboard absoluteRect] width] * scale
@@ -104,30 +104,30 @@ function onRun(context) {
 
 				var exportURL = [URL URLByAppendingPathComponent:[artboard name] + [size name]]
 				var layers = [NSMutableArray new]
-				
+
 				enumerateSlices(artboard, function(slice) {
-				
+
 					var layerName = [slice name] + ".imagestacklayer"
 					var layerURL = [exportURL URLByAppendingPathComponent:layerName]
-					
+
 					var imagesetURL = [layerURL URLByAppendingPathComponent:"Content.imageset"]
-					
+
 					var imageName = [slice name] + ".png"
 					var imageURL = [imagesetURL URLByAppendingPathComponent:imageName]
-					
+
 					var imagesetJSONURL = [imagesetURL URLByAppendingPathComponent:"Contents.json"]
 					var layerJSONURL = [layerURL URLByAppendingPathComponent:"Contents.json"]
 
 					// Export slice
 					var exportSlice = [[MSSliceMaker slicesFromExportableLayer:slice] firstObject]
 					[exportSlice setScale:scale]
-					
+
 					[document saveArtboardOrSlice:exportSlice toFile:[imageURL path]]
 
 					// Add layer
 					var layer = [NSDictionary dictionaryWithObject:layerName forKey:"filename"]
 					[layers insertObject:layer atIndex:0]
-					
+
 					// Create imageset Contents.json
 
 					var images = [NSMutableArray new]
@@ -137,7 +137,7 @@ function onRun(context) {
 					[imagesetJSON setObject:images forKey:"images"]
 					[imagesetJSON setObject:infoJSON() forKey:"info"]
 					saveJSONToURL(imagesetJSON, imagesetJSONURL)
-					
+
 					// Create imagestacklayer Contents.json
 					saveJSONToURL(layerJSON(width, height), layerJSONURL)
 
@@ -157,11 +157,11 @@ function onRun(context) {
 
 					var LSRJSONURL = [exportURL URLByAppendingPathComponent:"Contents.json"]
 					saveJSONToURL(LSRJSON, LSRJSONURL)
-				
+
 					createLSR(context, exportURL)
 				})
 			}
-		})	
+		})
 	})
 }
 
@@ -216,7 +216,7 @@ function layerJSON(width, height) {
 	// TODO: Explain this!!
 	[layerJSON removeObjectForKey:"author"]
 	[layerJSON removeObjectForKey:"version"]
-	
+
 	var properties = propertiesJSON(width, height)
 	[layerJSON setObject:properties forKey:"properties"]
 	return [layerJSON copy]
